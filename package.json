@@ -1,0 +1,46 @@
+{
+  "name": "fifa-rapid-agent-2026",
+  "version": "1.0.0",
+  "private": true,
+  "description": "React Native (Expo) app — football match companion with live formation chart, global chat, fan gallery, AI compass, and stadium safety reporting.",
+  "license": "ISC",
+  "author": "",
+  "main": "node_modules/expo/AppEntry.js",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "web": "expo start --web"
+  },
+  "dependencies": {
+    "@expo/metro-runtime": "~4.0.1",
+    "@gorhom/bottom-sheet": "^5.0.6",
+    "@react-native-async-storage/async-storage": "1.23.1",
+    "@react-navigation/bottom-tabs": "^6.6.1",
+    "@react-navigation/native": "^6.1.18",
+    "@react-navigation/native-stack": "^6.11.0",
+    "expo": "~52.0.46",
+    "expo-asset": "^56.0.14",
+    "expo-constants": "^56.0.15",
+    "expo-file-system": "^56.0.7",
+    "expo-font": "~13.0.4",
+    "expo-haptics": "~13.0.1",
+    "expo-linear-gradient": "~13.0.2",
+    "expo-modules-core": "^56.0.12",
+    "expo-status-bar": "~2.0.1",
+    "react": "18.3.1",
+    "react-dom": "^18.3.1",
+    "react-native": "0.76.9",
+    "react-native-gesture-handler": "~2.20.2",
+    "react-native-reanimated": "~3.16.7",
+    "react-native-safe-area-context": "4.12.0",
+    "react-native-screens": "~4.4.0",
+    "react-native-svg": "15.8.0",
+    "react-native-vector-icons": "^10.2.0",
+    "react-native-web": "^0.19.13",
+    "zustand": "^4.5.2"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.0"
+  }
+}

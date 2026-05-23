@@ -1,0 +1,22 @@
+{
+  "expo": {
+    "name": "FIFA Rapid Agent 2026",
+    "slug": "fifa-rapid-agent-2026",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": false,
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0A0F0A"
+      },
+      "package": "com.anonymous.fifarapidagent2026"
+    },
+    "plugins": [
+      "expo-font"
+    ]
+  }
+}
