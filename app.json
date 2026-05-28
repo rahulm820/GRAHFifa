@@ -17,6 +17,12 @@
     },
     "plugins": [
       "expo-font"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "100a524d-d3c0-4b67-bfbb-7a65aafd46c2"
+      }
+    },
+    "owner": "rahulm820"
   }
 }
