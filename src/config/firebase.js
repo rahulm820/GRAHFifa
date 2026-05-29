@@ -4,23 +4,31 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { initializeApp, getApps } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-
+import dotenv from 'dotenv';
+dotenv.config();
+const apiKey = process.env.FIREBASE_API_KEY;
+const authDomain = process.env.FIREBASE_AUTH_DOMAIN;
+const projectId = process.env.FIREBASE_PROJECT_ID;
+const storageBucket = process.env.FIREBASE_STORAGE_BUCKET;
+const messagingSenderId = process.env.FIREBASE_MESSAGING_SENDER_ID;
+const appId = process.env.FIREBASE_APP_ID;
+const measurementId = process.env.FIREBASE_MEASUREMENT_ID;
 // 🔥 STEP 1: Paste your Firebase project config here
 const firebaseConfig = {
-  apiKey: "AIzaSyBfLivFFAbegWxWBIszbFmUQf_Pxtp7rkI",
-  authDomain: "grah-ee306.firebaseapp.com",
-  projectId: "grah-ee306",
-  storageBucket: "grah-ee306.firebasestorage.app",
-  messagingSenderId: "417059112693",
-  appId: "1:417059112693:web:f7b7ecf4f0871d688ce7bc",
-  measurementId: "G-LFJV4594QB"
+  apiKey: apiKey,
+  authDomain: authDomain,
+  projectId: projectId,
+  storageBucket: storageBucket,
+  messagingSenderId: messagingSenderId,
+  appId: appId,
+  measurementId: measurementId
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // OAUTH — Google Sign-In only
 // Firebase Console → Authentication → Sign-in method → Google → Web SDK configuration
 // ─────────────────────────────────────────────────────────────────────────────
-export const GOOGLE_WEB_CLIENT_ID = '417059112693-cr5rstucrueq2meilbs2gqje26a1j6qr.apps.googleusercontent.com';
+export const GOOGLE_WEB_CLIENT_ID = process.env.GOOGLE_WEB_CLIENT_ID;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Initialize Firebase (safe for Expo Fast Refresh — avoids duplicate init)
