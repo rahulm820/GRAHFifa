@@ -9,7 +9,8 @@ import * as Google from 'expo-auth-session/providers/google';
 import { makeRedirectUri } from 'expo-auth-session';
 import { useThemeStore } from '../../store/themeStore';
 import { useAuthStore } from '../../store/authStore';
-import { GOOGLE_WEB_CLIENT_ID } from '../../config/firebase';
+import { GOOGLE_WEB_CLIENT_ID, GOOGLE_ANDROID_CLIENT_ID } from '../../config/firebase';
+import UsernameModal from './UsernameModal';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -34,7 +35,10 @@ function getStrength(pwd) {
 
 export default function SignupScreen({ navigation }) {
   const { theme, isDark } = useThemeStore();
-  const { signUpWithEmail, loginWithGoogleCredential, error, clearError } = useAuthStore();
+  const {
+    signUpWithEmail, prepareGoogleSignIn, error, clearError,
+    usernameModalVisible, usernameModalProvider, usernameSuggestion, dismissUsernameModal,
+  } = useAuthStore();
 
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -48,19 +52,23 @@ export default function SignupScreen({ navigation }) {
   const shakeAnim = useRef(new Animated.Value(0)).current;
   const strength = getStrength(password);
 
-  // Google
+  // ── Fixed redirect URI (no useProxy) ────────────────────────────────────────
+  const redirectUri = makeRedirectUri({
+    scheme: 'com.anonymous.fifarapidagent2026',
+  });
+
   const [, googleResponse, googlePrompt] = Google.useAuthRequest({
     webClientId: GOOGLE_WEB_CLIENT_ID,
-    redirectUri: makeRedirectUri({ scheme: 'com.anonymous.fifarapidagent2026', useProxy: true }),
+    androidClientId: GOOGLE_ANDROID_CLIENT_ID,
+    redirectUri: makeRedirectUri({ useProxy: true }),
   });
+
   useEffect(() => {
     if (googleResponse?.type === 'success') {
       const { id_token } = googleResponse.params;
-      setLoadingGoogle(true);
-      loginWithGoogleCredential(id_token).catch((e) => {
-        setLoadingGoogle(false);
-        Alert.alert('Error', e.message);
-      });
+      setLoadingGoogle(false);
+      // Two-step: open UsernameModal instead of signing in immediately
+      prepareGoogleSignIn(id_token);
     } else if (googleResponse?.type === 'error' || googleResponse?.type === 'dismiss') {
       setLoadingGoogle(false);
     }
@@ -81,7 +89,9 @@ export default function SignupScreen({ navigation }) {
   };
 
   const handleSignup = async () => {
-    if (!username.trim() || !email.trim() || !password.trim()) { shake(); Alert.alert('Missing Fields', 'Please fill all fields.'); return; }
+    if (!username.trim() || !email.trim() || !password.trim()) {
+      shake(); Alert.alert('Missing Fields', 'Please fill all fields.'); return;
+    }
     if (password !== confirmPwd) { shake(); Alert.alert('Mismatch', 'Passwords do not match.'); return; }
     if (!agreed) { Alert.alert('Terms', 'Please agree to the terms.'); return; }
     setLoading(true);
@@ -98,115 +108,140 @@ export default function SignupScreen({ navigation }) {
     return (
       <View style={[styles.inputWrap, { borderColor: foc ? theme.primary : theme.border, backgroundColor: theme.background }]}>
         <Text style={styles.icon}>{icon}</Text>
-        <TextInput style={[styles.input, { color: theme.textPrimary }]}
+        <TextInput
+          style={[styles.input, { color: theme.textPrimary }]}
           placeholder={placeholder} placeholderTextColor={theme.textMuted}
           value={value} onChangeText={onChange}
           secureTextEntry={secure} keyboardType={keyboard || 'default'} autoCapitalize={cap || 'sentences'}
-          onFocus={() => setFoc(true)} onBlur={() => setFoc(false)} />
+          onFocus={() => setFoc(true)} onBlur={() => setFoc(false)}
+        />
         {toggle !== undefined && (
-          <TouchableOpacity onPress={onToggle}><Text style={styles.icon}>{secure ? '👁️' : '🙈'}</Text></TouchableOpacity>
+          <TouchableOpacity onPress={onToggle}>
+            <Text style={styles.icon}>{secure ? '👁️' : '🙈'}</Text>
+          </TouchableOpacity>
         )}
       </View>
     );
   };
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <LinearGradient colors={isDark ? ['#030A03', '#0A1A0A', '#0D200D'] : ['#0D3B1E', '#1A6B3C', '#2DB555']}
-        style={styles.gradient} start={{ x: 0.5, y: 0 }} end={{ x: 0, y: 1 }}>
-
-        <View style={styles.dekorWrap} pointerEvents="none">
-          <Text style={{ fontSize: 220, opacity: 0.06 }}>🏆</Text>
-        </View>
-
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-          <View style={styles.header}>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-              <Text style={styles.backText}>← Back</Text>
-            </TouchableOpacity>
-            <Text style={styles.ball}>⚽</Text>
-            <Text style={styles.appName}>Join FIFA 2026</Text>
-            <Text style={styles.sub}>Create your fan account</Text>
+    <>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <LinearGradient
+          colors={isDark ? ['#030A03', '#0A1A0A', '#0D200D'] : ['#0D3B1E', '#1A6B3C', '#2DB555']}
+          style={styles.gradient}
+          start={{ x: 0.5, y: 0 }} end={{ x: 0, y: 1 }}
+        >
+          <View style={styles.dekorWrap} pointerEvents="none">
+            <Text style={{ fontSize: 220, opacity: 0.06 }}>🏆</Text>
           </View>
 
-          <Animated.View style={[styles.card, { transform: [{ translateX: shakeAnim }] }]}>
-            <LinearGradient
-              colors={isDark ? ['rgba(18,26,18,0.96)', 'rgba(8,12,8,0.99)'] : ['rgba(255,255,255,0.97)', 'rgba(245,250,245,0.99)']}
-              style={styles.cardInner}>
-              <Text style={[styles.cardTitle, { color: theme.textPrimary }]}>Create Account</Text>
-              <Text style={[styles.cardSub, { color: theme.textSecondary }]}>Your World Cup journey starts here 🌍</Text>
+          <ScrollView
+            contentContainerStyle={styles.scroll}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.header}>
+              <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+                <Text style={styles.backText}>← Back</Text>
+              </TouchableOpacity>
+              <Text style={styles.ball}>⚽</Text>
+              <Text style={styles.appName}>Join FIFA 2026</Text>
+              <Text style={styles.sub}>Create your fan account</Text>
+            </View>
 
-              {/* Google quick signup */}
-              <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>Quick signup with</Text>
-              <TouchableOpacity
-                style={[styles.googleBtn, { backgroundColor: isDark ? '#1C1C1C' : '#FFF', borderColor: '#EA4335' }]}
-                onPress={() => {
-                  if (!GOOGLE_READY) { Alert.alert('Not Configured', 'Add GOOGLE_WEB_CLIENT_ID in firebase.js'); return; }
-                  setLoadingGoogle(true);
-                  googlePrompt();
-                }}
-                disabled={anyLoading} activeOpacity={0.8}
+            <Animated.View style={[styles.card, { transform: [{ translateX: shakeAnim }] }]}>
+              <LinearGradient
+                colors={isDark
+                  ? ['rgba(18,26,18,0.96)', 'rgba(8,12,8,0.99)']
+                  : ['rgba(255,255,255,0.97)', 'rgba(245,250,245,0.99)']}
+                style={styles.cardInner}
               >
-                {loadingGoogle
-                  ? <ActivityIndicator color="#EA4335" size="small" />
-                  : <Text style={[styles.socialIcon, { color: '#EA4335', fontWeight: '900' }]}>G</Text>}
-                <Text style={[styles.googleLabel, { color: theme.textPrimary }]}>Continue with Google</Text>
-              </TouchableOpacity>
+                <Text style={[styles.cardTitle, { color: theme.textPrimary }]}>Create Account</Text>
+                <Text style={[styles.cardSub, { color: theme.textSecondary }]}>Your World Cup journey starts here 🌍</Text>
 
-              {/* Divider */}
-              <View style={styles.divider}>
-                <View style={[styles.divLine, { backgroundColor: theme.border }]} />
-                <Text style={[styles.divText, { color: theme.textMuted }]}>or sign up with email</Text>
-                <View style={[styles.divLine, { backgroundColor: theme.border }]} />
-              </View>
-
-              <FocusedInput icon="🎮" placeholder="Choose a username" value={username} onChange={setUsername} cap="none" />
-              <FocusedInput icon="✉️" placeholder="Email address" value={email} onChange={setEmail} keyboard="email-address" cap="none" />
-              <FocusedInput icon="🔒" placeholder="Create password" value={password} onChange={setPassword} secure={!showPwd} toggle onToggle={() => setShowPwd(!showPwd)} cap="none" />
-
-              {/* Strength meter */}
-              {password.length > 0 && (
-                <View style={styles.strengthRow}>
-                  <View style={styles.strengthBars}>
-                    {[0, 1, 2, 3].map(i => (
-                      <View key={i} style={[styles.strengthBar, { backgroundColor: i < [0,1,2,3,4].indexOf([0,1,2,3,4].find(s => strengthMap[s].label === strength.label) ?? 0) ? strength.color : theme.border }]} />
-                    ))}
-                  </View>
-                  <Text style={[styles.strengthLabel, { color: strength.color }]}>{strength.label}</Text>
-                </View>
-              )}
-
-              <FocusedInput icon="🔑" placeholder="Confirm password" value={confirmPwd} onChange={setConfirmPwd} secure={!showConfirm} toggle onToggle={() => setShowConfirm(!showConfirm)} cap="none" />
-
-              {/* Terms */}
-              <TouchableOpacity style={styles.termsRow} onPress={() => setAgreed(!agreed)} activeOpacity={0.8}>
-                <View style={[styles.checkbox, { borderColor: agreed ? theme.primary : theme.border, backgroundColor: agreed ? theme.primary : 'transparent' }]}>
-                  {agreed && <Text style={styles.checkmark}>✓</Text>}
-                </View>
-                <Text style={[styles.termsText, { color: theme.textSecondary }]}>
-                  I agree to the <Text style={{ color: theme.primary, fontWeight: '700' }}>Terms</Text> and <Text style={{ color: theme.primary, fontWeight: '700' }}>Privacy Policy</Text>
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity onPress={handleSignup} disabled={anyLoading} activeOpacity={0.85}>
-                <LinearGradient colors={[theme.primary, theme.primaryDark]} style={styles.mainBtn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
-                  {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.mainBtnText}>Create Account 🚀</Text>}
-                </LinearGradient>
-              </TouchableOpacity>
-
-              <View style={styles.loginRow}>
-                <Text style={[styles.loginText, { color: theme.textSecondary }]}>Already have an account? </Text>
-                <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-                  <Text style={[styles.loginLink, { color: theme.primary }]}>Sign In</Text>
+                <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>Quick signup with</Text>
+                <TouchableOpacity
+                  style={[styles.googleBtn, { backgroundColor: isDark ? '#1C1C1C' : '#FFF', borderColor: '#EA4335' }]}
+                  onPress={() => {
+                    if (!GOOGLE_READY) { Alert.alert('Not Configured', 'Add GOOGLE_WEB_CLIENT_ID in firebase.js'); return; }
+                    setLoadingGoogle(true);
+                    googlePrompt();
+                  }}
+                  disabled={anyLoading}
+                  activeOpacity={0.8}
+                >
+                  {loadingGoogle
+                    ? <ActivityIndicator color="#EA4335" size="small" />
+                    : <Text style={[styles.socialIcon, { color: '#EA4335', fontWeight: '900' }]}>G</Text>}
+                  <Text style={[styles.googleLabel, { color: theme.textPrimary }]}>Continue with Google</Text>
                 </TouchableOpacity>
-              </View>
-            </LinearGradient>
-          </Animated.View>
 
-          <Text style={styles.footer}>FIFA World Cup 2026 • USA 🇺🇸 MEX 🇲🇽 CAN 🇨🇦</Text>
-        </ScrollView>
-      </LinearGradient>
-    </KeyboardAvoidingView>
+                <View style={styles.divider}>
+                  <View style={[styles.divLine, { backgroundColor: theme.border }]} />
+                  <Text style={[styles.divText, { color: theme.textMuted }]}>or sign up with email</Text>
+                  <View style={[styles.divLine, { backgroundColor: theme.border }]} />
+                </View>
+
+                <FocusedInput icon="🎮" placeholder="Choose a username" value={username} onChange={setUsername} cap="none" />
+                <FocusedInput icon="✉️" placeholder="Email address" value={email} onChange={setEmail} keyboard="email-address" cap="none" />
+                <FocusedInput icon="🔒" placeholder="Create password" value={password} onChange={setPassword} secure={!showPwd} toggle onToggle={() => setShowPwd(!showPwd)} cap="none" />
+
+                {password.length > 0 && (
+                  <View style={styles.strengthRow}>
+                    <View style={styles.strengthBars}>
+                      {[1, 2, 3, 4].map(i => (
+                        <View
+                          key={i}
+                          style={[
+                            styles.strengthBar,
+                            { backgroundColor: i <= strengthMap.indexOf(strength) ? strength.color : theme.border },
+                          ]}
+                        />
+                      ))}
+                    </View>
+                    <Text style={[styles.strengthLabel, { color: strength.color }]}>{strength.label}</Text>
+                  </View>
+                )}
+
+                <FocusedInput icon="🔑" placeholder="Confirm password" value={confirmPwd} onChange={setConfirmPwd} secure={!showConfirm} toggle onToggle={() => setShowConfirm(!showConfirm)} cap="none" />
+
+                <TouchableOpacity style={styles.termsRow} onPress={() => setAgreed(!agreed)} activeOpacity={0.8}>
+                  <View style={[styles.checkbox, { borderColor: agreed ? theme.primary : theme.border, backgroundColor: agreed ? theme.primary : 'transparent' }]}>
+                    {agreed && <Text style={styles.checkmark}>✓</Text>}
+                  </View>
+                  <Text style={[styles.termsText, { color: theme.textSecondary }]}>
+                    I agree to the <Text style={{ color: theme.primary, fontWeight: '700' }}>Terms</Text> and <Text style={{ color: theme.primary, fontWeight: '700' }}>Privacy Policy</Text>
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity onPress={handleSignup} disabled={anyLoading} activeOpacity={0.85}>
+                  <LinearGradient colors={[theme.primary, theme.primaryDark]} style={styles.mainBtn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+                    {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.mainBtnText}>Create Account 🚀</Text>}
+                  </LinearGradient>
+                </TouchableOpacity>
+
+                <View style={styles.loginRow}>
+                  <Text style={[styles.loginText, { color: theme.textSecondary }]}>Already have an account? </Text>
+                  <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+                    <Text style={[styles.loginLink, { color: theme.primary }]}>Sign In</Text>
+                  </TouchableOpacity>
+                </View>
+              </LinearGradient>
+            </Animated.View>
+
+            <Text style={styles.footer}>FIFA World Cup 2026 • USA 🇺🇸 MEX 🇲🇽 CAN 🇨🇦</Text>
+          </ScrollView>
+        </LinearGradient>
+      </KeyboardAvoidingView>
+
+      <UsernameModal
+        visible={usernameModalVisible}
+        provider={usernameModalProvider}
+        suggestion={usernameSuggestion}
+        onDismiss={dismissUsernameModal}
+      />
+    </>
   );
 }
 

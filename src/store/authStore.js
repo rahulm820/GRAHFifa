@@ -3,6 +3,7 @@ import {
   onAuthStateChanged,
   signOut,
   signInWithCredential,
+  signInWithPopup,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   updateProfile,
@@ -46,8 +47,21 @@ export const useAuthStore = create((set, get) => ({
     return unsubscribe; // caller can call to detach listener
   },
 
-  // ── Google Sign-In ────────────────────────────────────────────────────────
-  // Called from LoginScreen after expo-auth-session returns an id_token
+  // ── Google Sign-In (WEB) — Firebase signInWithPopup ────────────────────
+  // No redirect URI config needed. Firebase handles the popup internally.
+  loginWithGooglePopup: async () => {
+    set({ error: null });
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+      // onAuthStateChanged fires automatically and updates state
+    } catch (e) {
+      set({ error: e.message });
+      throw e;
+    }
+  },
+
+  // ── Google Sign-In (NATIVE) — expo-auth-session id_token flow ─────────
   loginWithGoogleCredential: async (idToken) => {
     set({ error: null });
     try {

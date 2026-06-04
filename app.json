@@ -16,7 +16,8 @@
       "package": "com.anonymous.fifarapidagent2026"
     },
     "plugins": [
-      "expo-font"
+      "expo-font",
+      "expo-asset"
     ],
     "extra": {
       "eas": {

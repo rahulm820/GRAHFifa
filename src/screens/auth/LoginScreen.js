@@ -1,34 +1,31 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  Animated,
-  ActivityIndicator,
-  Alert,
+  View, Text, TextInput, TouchableOpacity, StyleSheet,
+  ScrollView, KeyboardAvoidingView, Platform, Animated,
+  ActivityIndicator, Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useThemeStore } from '../../store/themeStore';
+import { useAuthStore } from '../../store/authStore';
+import UsernameModal from './UsernameModal';
+
+// expo-auth-session imports — only used on native, safe to import on web too
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 import { makeRedirectUri } from 'expo-auth-session';
-import { useThemeStore } from '../../store/themeStore';
-import { useAuthStore } from '../../store/authStore';
-import { GOOGLE_WEB_CLIENT_ID } from '../../config/firebase';
+import { GOOGLE_WEB_CLIENT_ID, GOOGLE_ANDROID_CLIENT_ID } from '../../config/firebase';
 
-// Required for expo-auth-session to handle redirects in Expo Go
 WebBrowser.maybeCompleteAuthSession();
-
-// ─── Placeholder guard ────────────────────────────────────────────────────────
-const GOOGLE_READY = GOOGLE_WEB_CLIENT_ID !== 'YOUR_GOOGLE_WEB_CLIENT_ID.apps.googleusercontent.com';
 
 export default function LoginScreen({ navigation }) {
   const { theme, isDark } = useThemeStore();
-  const { loginWithEmail, loginWithGoogleCredential, error, clearError } = useAuthStore();
+  const {
+    loginWithEmail,
+    loginWithGooglePopup,   // Firebase signInWithPopup — used on web
+    prepareGoogleSignIn,    // expo-auth-session flow — used on native
+    error, clearError,
+    usernameModalVisible, usernameModalProvider, usernameSuggestion, dismissUsernameModal,
+  } = useAuthStore();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -40,28 +37,26 @@ export default function LoginScreen({ navigation }) {
 
   const shakeAnim = useRef(new Animated.Value(0)).current;
 
-  // ── Google OAuth ────────────────────────────────────────────────────────────
-  const [googleRequest, googleResponse, googlePrompt] = Google.useAuthRequest({
+  // ── expo-auth-session hook — always called (hooks must not be conditional) ──
+  // On web this hook still runs but googlePrompt() is never called.
+  const [, googleResponse, googlePrompt] = Google.useAuthRequest({
     webClientId: GOOGLE_WEB_CLIENT_ID,
-    redirectUri: makeRedirectUri({ scheme: 'com.anonymous.fifarapidagent2026', useProxy: true }),
-    // iosClientId: 'YOUR_IOS_CLIENT_ID',       // add when building for iOS
-    // androidClientId: 'YOUR_ANDROID_CLIENT_ID', // add when building for Android
+    androidClientId: GOOGLE_ANDROID_CLIENT_ID,
+    redirectUri: makeRedirectUri(),   // auto-detects: proxy on Expo Go, scheme on standalone
   });
 
+  // Handle native Google response
   useEffect(() => {
     if (googleResponse?.type === 'success') {
-      const { id_token } = googleResponse.params;
-      setLoadingGoogle(true);
-      loginWithGoogleCredential(id_token).catch((e) => {
-        setLoadingGoogle(false);
-        Alert.alert('Google Sign-In Failed', e.message);
-      });
+      const idToken = googleResponse.authentication?.idToken
+        ?? googleResponse.params?.id_token;
+      if (idToken) prepareGoogleSignIn(idToken);
+      setLoadingGoogle(false);
     } else if (googleResponse?.type === 'error' || googleResponse?.type === 'dismiss') {
       setLoadingGoogle(false);
     }
   }, [googleResponse]);
 
-  // ── Error alert ─────────────────────────────────────────────────────────────
   useEffect(() => {
     if (error) {
       Alert.alert('Sign-In Error', error, [{ text: 'OK', onPress: clearError }]);
@@ -70,11 +65,11 @@ export default function LoginScreen({ navigation }) {
 
   const shake = () => {
     Animated.sequence([
-      Animated.timing(shakeAnim, { toValue: 10, duration: 60, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: -10, duration: 60, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: 6, duration: 60, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: -6, duration: 60, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: 0, duration: 60, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 10, duration: 60, useNativeDriver: Platform.OS !== 'web' }),
+      Animated.timing(shakeAnim, { toValue: -10, duration: 60, useNativeDriver: Platform.OS !== 'web' }),
+      Animated.timing(shakeAnim, { toValue: 6, duration: 60, useNativeDriver: Platform.OS !== 'web' }),
+      Animated.timing(shakeAnim, { toValue: -6, duration: 60, useNativeDriver: Platform.OS !== 'web' }),
+      Animated.timing(shakeAnim, { toValue: 0, duration: 60, useNativeDriver: Platform.OS !== 'web' }),
     ]).start();
   };
 
@@ -90,116 +85,138 @@ export default function LoginScreen({ navigation }) {
     }
   };
 
-  const handleGoogle = () => {
-    if (!GOOGLE_READY) {
-      Alert.alert(
-        '🔴 Google Not Configured',
-        'Add your GOOGLE_WEB_CLIENT_ID in src/config/firebase.js to enable Google sign-in.',
-      );
-      return;
-    }
+  // ── Platform-aware Google Sign-In ────────────────────────────────────────────
+  // WEB  → Firebase signInWithPopup (no redirect URI config needed — ever)
+  // NATIVE → expo-auth-session prompt
+  const handleGoogle = async () => {
     setLoadingGoogle(true);
-    googlePrompt();
+    try {
+      if (Platform.OS === 'web') {
+        await loginWithGooglePopup();
+        // loginWithGooglePopup resolves after sign-in; onAuthStateChanged updates state
+      } else {
+        googlePrompt();  // response handled by the useEffect above
+      }
+    } catch (e) {
+      setLoadingGoogle(false);
+      Alert.alert('Google Sign-In Failed', e.message);
+    }
   };
 
   const anyLoading = loadingEmail || loadingGoogle;
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <LinearGradient
-        colors={isDark ? ['#030A03', '#0A1A0A', '#0D200D'] : ['#0D3B1E', '#1A6B3C', '#2DB555']}
-        style={styles.gradient}
-        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-      >
-        {/* Decor */}
-        <View style={styles.dekorWrap} pointerEvents="none">
-          <Text style={styles.dekorStadium}>🏟️</Text>
-          <View style={styles.ring1} /><View style={styles.ring2} />
-        </View>
-
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-          {/* ── Header ── */}
-          <View style={styles.header}>
-            <Text style={styles.ball}>⚽</Text>
-            <Text style={styles.appName}>FIFA 2026</Text>
-            <Text style={styles.tagline}>RAPID AGENT</Text>
-            <Text style={styles.sub}>The World Cup in your pocket</Text>
+    <>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <LinearGradient
+          colors={isDark ? ['#030A03', '#0A1A0A', '#0D200D'] : ['#0D3B1E', '#1A6B3C', '#2DB555']}
+          style={styles.gradient}
+          start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+        >
+          <View style={styles.dekorWrap} pointerEvents="none">
+            <Text style={styles.dekorStadium}>🏟️</Text>
+            <View style={styles.ring1} /><View style={styles.ring2} />
           </View>
 
-          {/* ── Card ── */}
-          <Animated.View style={[styles.card, { transform: [{ translateX: shakeAnim }] }]}>
-            <LinearGradient
-              colors={isDark ? ['rgba(18,26,18,0.96)', 'rgba(8,12,8,0.99)'] : ['rgba(255,255,255,0.97)', 'rgba(245,250,245,0.99)']}
-              style={styles.cardInner}
-            >
-              <Text style={[styles.cardTitle, { color: theme.textPrimary }]}>Welcome Back</Text>
-              <Text style={[styles.cardSub, { color: theme.textSecondary }]}>Sign in to continue</Text>
+          <ScrollView
+            contentContainerStyle={styles.scroll}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.header}>
+              <Text style={styles.ball}>⚽</Text>
+              <Text style={styles.appName}>FIFA 2026</Text>
+              <Text style={styles.tagline}>RAPID AGENT</Text>
+              <Text style={styles.sub}>The World Cup in your pocket</Text>
+            </View>
 
-              {/* Email */}
-              <View style={[styles.inputWrap, { borderColor: emailFocused ? theme.primary : theme.border, backgroundColor: theme.background }]}>
-                <Text style={styles.icon}>✉️</Text>
-                <TextInput style={[styles.input, { color: theme.textPrimary }]}
-                  placeholder="Email address" placeholderTextColor={theme.textMuted}
-                  value={email} onChangeText={setEmail}
-                  keyboardType="email-address" autoCapitalize="none"
-                  onFocus={() => setEmailFocused(true)} onBlur={() => setEmailFocused(false)} />
-              </View>
-
-              {/* Password */}
-              <View style={[styles.inputWrap, { borderColor: passFocused ? theme.primary : theme.border, backgroundColor: theme.background }]}>
-                <Text style={styles.icon}>🔒</Text>
-                <TextInput style={[styles.input, { color: theme.textPrimary }]}
-                  placeholder="Password" placeholderTextColor={theme.textMuted}
-                  value={password} onChangeText={setPassword} secureTextEntry={!showPassword}
-                  onFocus={() => setPassFocused(true)} onBlur={() => setPassFocused(false)} />
-                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                  <Text style={styles.icon}>{showPassword ? '🙈' : '👁️'}</Text>
-                </TouchableOpacity>
-              </View>
-
-              <TouchableOpacity style={styles.forgotBtn}>
-                <Text style={[styles.forgotText, { color: theme.primary }]}>Forgot password?</Text>
-              </TouchableOpacity>
-
-              {/* Sign In Button */}
-              <TouchableOpacity onPress={handleEmailLogin} disabled={anyLoading} activeOpacity={0.85}>
-                <LinearGradient colors={[theme.primary, theme.primaryDark]} style={styles.mainBtn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
-                  {loadingEmail ? <ActivityIndicator color="#fff" /> : <Text style={styles.mainBtnText}>Sign In</Text>}
-                </LinearGradient>
-              </TouchableOpacity>
-
-              {/* Divider */}
-              <View style={styles.divider}>
-                <View style={[styles.divLine, { backgroundColor: theme.border }]} />
-                <Text style={[styles.divText, { color: theme.textMuted }]}>or continue with</Text>
-                <View style={[styles.divLine, { backgroundColor: theme.border }]} />
-              </View>
-
-              {/* Google Button */}
-              <TouchableOpacity
-                style={[styles.googleBtn, { backgroundColor: isDark ? '#1C1C1C' : '#FFF', borderColor: '#EA4335' }]}
-                onPress={handleGoogle} disabled={anyLoading} activeOpacity={0.8}
+            <Animated.View style={[styles.card, { transform: [{ translateX: shakeAnim }] }]}>
+              <LinearGradient
+                colors={isDark
+                  ? ['rgba(18,26,18,0.96)', 'rgba(8,12,8,0.99)']
+                  : ['rgba(255,255,255,0.97)', 'rgba(245,250,245,0.99)']}
+                style={styles.cardInner}
               >
-                {loadingGoogle
-                  ? <ActivityIndicator color="#EA4335" size="small" />
-                  : <Text style={[styles.socialIcon, { color: '#EA4335', fontWeight: '900' }]}>G</Text>}
-                <Text style={[styles.googleLabel, { color: theme.textPrimary }]}>Continue with Google</Text>
-              </TouchableOpacity>
+                <Text style={[styles.cardTitle, { color: theme.textPrimary }]}>Welcome Back</Text>
+                <Text style={[styles.cardSub, { color: theme.textSecondary }]}>Sign in to continue</Text>
 
-              {/* Sign Up Link */}
-              <View style={styles.signupRow}>
-                <Text style={[styles.signupText, { color: theme.textSecondary }]}>Don't have an account? </Text>
-                <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
-                  <Text style={[styles.signupLink, { color: theme.primary }]}>Sign Up</Text>
+                <View style={[styles.inputWrap, { borderColor: emailFocused ? theme.primary : theme.border, backgroundColor: theme.background }]}>
+                  <Text style={styles.icon}>✉️</Text>
+                  <TextInput
+                    style={[styles.input, { color: theme.textPrimary }]}
+                    placeholder="Email address" placeholderTextColor={theme.textMuted}
+                    value={email} onChangeText={setEmail}
+                    keyboardType="email-address" autoCapitalize="none"
+                    onFocus={() => setEmailFocused(true)} onBlur={() => setEmailFocused(false)}
+                  />
+                </View>
+
+                <View style={[styles.inputWrap, { borderColor: passFocused ? theme.primary : theme.border, backgroundColor: theme.background }]}>
+                  <Text style={styles.icon}>🔒</Text>
+                  <TextInput
+                    style={[styles.input, { color: theme.textPrimary }]}
+                    placeholder="Password" placeholderTextColor={theme.textMuted}
+                    value={password} onChangeText={setPassword} secureTextEntry={!showPassword}
+                    onFocus={() => setPassFocused(true)} onBlur={() => setPassFocused(false)}
+                  />
+                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                    <Text style={styles.icon}>{showPassword ? '🙈' : '👁️'}</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <TouchableOpacity style={styles.forgotBtn}>
+                  <Text style={[styles.forgotText, { color: theme.primary }]}>Forgot password?</Text>
                 </TouchableOpacity>
-              </View>
-            </LinearGradient>
-          </Animated.View>
 
-          <Text style={styles.footer}>FIFA World Cup 2026 • USA 🇺🇸 MEX 🇲🇽 CAN 🇨🇦</Text>
-        </ScrollView>
-      </LinearGradient>
-    </KeyboardAvoidingView>
+                <TouchableOpacity onPress={handleEmailLogin} disabled={anyLoading} activeOpacity={0.85}>
+                  <LinearGradient
+                    colors={[theme.primary, theme.primaryDark]}
+                    style={styles.mainBtn}
+                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                  >
+                    {loadingEmail
+                      ? <ActivityIndicator color="#fff" />
+                      : <Text style={styles.mainBtnText}>Sign In</Text>}
+                  </LinearGradient>
+                </TouchableOpacity>
+
+                <View style={styles.divider}>
+                  <View style={[styles.divLine, { backgroundColor: theme.border }]} />
+                  <Text style={[styles.divText, { color: theme.textMuted }]}>or continue with</Text>
+                  <View style={[styles.divLine, { backgroundColor: theme.border }]} />
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.googleBtn, { backgroundColor: isDark ? '#1C1C1C' : '#FFF', borderColor: '#EA4335' }]}
+                  onPress={handleGoogle} disabled={anyLoading} activeOpacity={0.8}
+                >
+                  {loadingGoogle
+                    ? <ActivityIndicator color="#EA4335" size="small" />
+                    : <Text style={[styles.socialIcon, { color: '#EA4335', fontWeight: '900' }]}>G</Text>}
+                  <Text style={[styles.googleLabel, { color: theme.textPrimary }]}>Continue with Google</Text>
+                </TouchableOpacity>
+
+                <View style={styles.signupRow}>
+                  <Text style={[styles.signupText, { color: theme.textSecondary }]}>Don't have an account? </Text>
+                  <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
+                    <Text style={[styles.signupLink, { color: theme.primary }]}>Sign Up</Text>
+                  </TouchableOpacity>
+                </View>
+              </LinearGradient>
+            </Animated.View>
+
+            <Text style={styles.footer}>FIFA World Cup 2026</Text>
+          </ScrollView>
+        </LinearGradient>
+      </KeyboardAvoidingView>
+
+      <UsernameModal
+        visible={usernameModalVisible}
+        provider={usernameModalProvider}
+        suggestion={usernameSuggestion}
+        onDismiss={dismissUsernameModal}
+      />
+    </>
   );
 }
 
