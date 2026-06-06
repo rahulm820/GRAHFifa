@@ -1,0 +1,45 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# fifa-app/.gitignore — React Native / Expo specific
+# Root .gitignore covers secrets and OS files
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+
+# Metro
+.metro-health-check*
+
+# Build
+*.tgz
+
+# Android
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+
+# iOS
+ios/Pods/
+ios/build/
+
+# Firebase (contains project-specific secrets)
+google-services.json
+GoogleService-Info.plist
+
+# Environment (secrets)
+.env
+.env.local
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db

@@ -47,7 +47,7 @@ function MessageBubble({ msg, theme }) {
     <View style={[styles.msgRow, isUser && styles.msgRowUser]}>
       {!isUser && (
         <View style={[styles.aiAvatar, { backgroundColor: theme.primary + '22' }]}>
-          <Text style={{ fontSize: 14 }}>✨</Text>
+          <Text style={{ fontSize: 14 }}>⚽</Text>
         </View>
       )}
       <View style={[
@@ -85,7 +85,7 @@ function SparkleIcon() {
 
   return (
     <Animated.Text style={[styles.fabIcon, { transform: [{ rotate: spin }] }]}>
-      ✨
+      ⚽
     </Animated.Text>
   );
 }
@@ -130,10 +130,10 @@ export default function GeminiChatbot() {
   };
 
   const quickPrompts = [
-    '⚽ Current score?',
-    '📊 Match stats',
-    '🏟️ Tournament info',
-    '🌟 Top players',
+    '⚽ Summarize the current match',
+    '🏆 Who are the top scorers?',
+    '📊 How is Argentina doing?',
+    '🕐 What happened in the first half?',
   ];
 
   if (!isOpen) {
@@ -168,10 +168,10 @@ export default function GeminiChatbot() {
           {/* Header */}
           <View style={[styles.chatHeader, { backgroundColor: theme.primary, borderBottomColor: theme.border }]}>
             <View style={styles.headerLeft}>
-              <Text style={styles.headerIcon}>✨</Text>
+              <Text style={styles.headerIcon}>⚽</Text>
               <View>
-                <Text style={styles.headerTitle}>Gemini AI</Text>
-                <Text style={styles.headerSubtitle}>FIFA WC 2026 Assistant</Text>
+                <Text style={styles.headerTitle}>Kick</Text>
+                <Text style={styles.headerSubtitle}>Powered by Gemini · ADK</Text>
               </View>
             </View>
             <View style={styles.headerActions}>
@@ -193,12 +193,12 @@ export default function GeminiChatbot() {
             renderItem={({ item }) => <MessageBubble msg={item} theme={theme} />}
             ListEmptyComponent={() => (
               <View style={styles.emptyState}>
-                <Text style={{ fontSize: 40, marginBottom: 12 }}>✨</Text>
+                <Text style={{ fontSize: 40, marginBottom: 12 }}>⚽</Text>
                 <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>
-                  Hi! I'm your FIFA WC 2026 Assistant
+                  Hey! I'm Kick
                 </Text>
                 <Text style={[styles.emptyDesc, { color: theme.textSecondary }]}>
-                  Ask me anything about matches, players, stadiums, or the tournament!
+                  Your AI football pundit. Ask me about live scores, player stats, standings, or the tournament!
                 </Text>
                 <View style={styles.quickPrompts}>
                   {quickPrompts.map((prompt, i) => (
@@ -220,7 +220,7 @@ export default function GeminiChatbot() {
           <View style={[styles.inputBar, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
             <TextInput
               style={[styles.textInput, { color: theme.textPrimary, backgroundColor: theme.background }]}
-              placeholder="Ask about FIFA WC 2026..."
+              placeholder="Ask Kick anything..."
               placeholderTextColor={theme.textMuted}
               value={input}
               onChangeText={setInput}

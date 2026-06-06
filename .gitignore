@@ -1,7 +1,95 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# .gitignore — FIFA Rapid Agent 2026
+# Monorepo: fifa-app (React Native/Expo) + adk-server (Python/FastAPI)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Secrets & Environment ──────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# ── OS Files ───────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~
+
+# ── IDE / Editor ───────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.iml
+.vs/
+*.suo
+*.user
+
+# ── Google Secrets ─────────────────────────────────────────────────────────────
+client_secret_*.json
+google-services.json
+GoogleService-Info.plist
+
+# ── Auto-generated docs ───────────────────────────────────────────────────────
+FIFA_Rapid_Agent_Context_Capsule.md
+
+# ── Logs ───────────────────────────────────────────────────────────────────────
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# React Native / Expo
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Dependencies
 node_modules/
+
+# Expo
 .expo/
 dist/
-*.log
-.DS_Store
-.gitignore
-.env
+web-build/
+
+# Metro bundler
+.metro-health-check*
+
+# Build
+*.tgz
+
+# Android build output (keep source, ignore generated)
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+
+# iOS (if added later)
+ios/Pods/
+ios/build/
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Python / ADK  (adk-server/)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Byte-compiled / optimized
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+
+# Distribution / packaging
+*.egg-info/
+*.egg
+
+# Pytest / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# mypy
+.mypy_cache/
