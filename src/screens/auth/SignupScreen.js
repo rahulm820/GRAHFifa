@@ -33,6 +33,27 @@ function getStrength(pwd) {
   return strengthMap[s] || strengthMap[0];
 }
 
+const FocusedInput = ({ theme, icon, placeholder, value, onChange, secure, toggle, onToggle, keyboard, cap }) => {
+  const [foc, setFoc] = useState(false);
+  return (
+    <View style={[styles.inputWrap, { borderColor: foc ? theme.primary : theme.border, backgroundColor: theme.background }]}>
+      <Text style={styles.icon}>{icon}</Text>
+      <TextInput
+        style={[styles.input, { color: theme.textPrimary }]}
+        placeholder={placeholder} placeholderTextColor={theme.textMuted}
+        value={value} onChangeText={onChange}
+        secureTextEntry={secure} keyboardType={keyboard || 'default'} autoCapitalize={cap || 'sentences'}
+        onFocus={() => setFoc(true)} onBlur={() => setFoc(false)}
+      />
+      {toggle !== undefined && (
+        <TouchableOpacity onPress={onToggle}>
+          <Text style={styles.icon}>{secure ? '👁️' : '🙈'}</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+};
+
 export default function SignupScreen({ navigation }) {
   const { theme, isDark } = useThemeStore();
   const {
@@ -52,15 +73,17 @@ export default function SignupScreen({ navigation }) {
   const shakeAnim = useRef(new Animated.Value(0)).current;
   const strength = getStrength(password);
 
-  // ── Fixed redirect URI (no useProxy) ────────────────────────────────────────
-  const redirectUri = makeRedirectUri({
-    scheme: 'com.anonymous.fifarapidagent2026',
-  });
+  // Native/Expo Go: routes through https://auth.expo.io/@rahulm820/fifa-rapid-agent-2026
+  // ⚠ Register that URI in Google Cloud Console → Web Client → Authorized redirect URIs
+  const redirectUri = Platform.OS === 'web'
+    ? makeRedirectUri()
+    : 'https://auth.expo.io/@rahulm820/fifa-rapid-agent-2026';
 
   const [, googleResponse, googlePrompt] = Google.useAuthRequest({
+    expoClientId: GOOGLE_WEB_CLIENT_ID,    // Forces Expo Go to use the Web Client ID
     webClientId: GOOGLE_WEB_CLIENT_ID,
     androidClientId: GOOGLE_ANDROID_CLIENT_ID,
-    redirectUri: makeRedirectUri({ useProxy: true }),
+    redirectUri,
   });
 
   useEffect(() => {
@@ -102,27 +125,6 @@ export default function SignupScreen({ navigation }) {
   };
 
   const anyLoading = loading || loadingGoogle;
-
-  const FocusedInput = ({ icon, placeholder, value, onChange, secure, toggle, onToggle, keyboard, cap }) => {
-    const [foc, setFoc] = useState(false);
-    return (
-      <View style={[styles.inputWrap, { borderColor: foc ? theme.primary : theme.border, backgroundColor: theme.background }]}>
-        <Text style={styles.icon}>{icon}</Text>
-        <TextInput
-          style={[styles.input, { color: theme.textPrimary }]}
-          placeholder={placeholder} placeholderTextColor={theme.textMuted}
-          value={value} onChangeText={onChange}
-          secureTextEntry={secure} keyboardType={keyboard || 'default'} autoCapitalize={cap || 'sentences'}
-          onFocus={() => setFoc(true)} onBlur={() => setFoc(false)}
-        />
-        {toggle !== undefined && (
-          <TouchableOpacity onPress={onToggle}>
-            <Text style={styles.icon}>{secure ? '👁️' : '🙈'}</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-    );
-  };
 
   return (
     <>
@@ -183,9 +185,9 @@ export default function SignupScreen({ navigation }) {
                   <View style={[styles.divLine, { backgroundColor: theme.border }]} />
                 </View>
 
-                <FocusedInput icon="🎮" placeholder="Choose a username" value={username} onChange={setUsername} cap="none" />
-                <FocusedInput icon="✉️" placeholder="Email address" value={email} onChange={setEmail} keyboard="email-address" cap="none" />
-                <FocusedInput icon="🔒" placeholder="Create password" value={password} onChange={setPassword} secure={!showPwd} toggle onToggle={() => setShowPwd(!showPwd)} cap="none" />
+                <FocusedInput theme={theme} icon="🎮" placeholder="Choose a username" value={username} onChange={setUsername} cap="none" />
+                <FocusedInput theme={theme} icon="✉️" placeholder="Email address" value={email} onChange={setEmail} keyboard="email-address" cap="none" />
+                <FocusedInput theme={theme} icon="🔒" placeholder="Create password" value={password} onChange={setPassword} secure={!showPwd} toggle onToggle={() => setShowPwd(!showPwd)} cap="none" />
 
                 {password.length > 0 && (
                   <View style={styles.strengthRow}>
@@ -204,7 +206,7 @@ export default function SignupScreen({ navigation }) {
                   </View>
                 )}
 
-                <FocusedInput icon="🔑" placeholder="Confirm password" value={confirmPwd} onChange={setConfirmPwd} secure={!showConfirm} toggle onToggle={() => setShowConfirm(!showConfirm)} cap="none" />
+                <FocusedInput theme={theme} icon="🔑" placeholder="Confirm password" value={confirmPwd} onChange={setConfirmPwd} secure={!showConfirm} toggle onToggle={() => setShowConfirm(!showConfirm)} cap="none" />
 
                 <TouchableOpacity style={styles.termsRow} onPress={() => setAgreed(!agreed)} activeOpacity={0.8}>
                   <View style={[styles.checkbox, { borderColor: agreed ? theme.primary : theme.border, backgroundColor: agreed ? theme.primary : 'transparent' }]}>

@@ -3,11 +3,11 @@ import { View, Text, Animated, PanResponder, TouchableOpacity, Dimensions, Style
 import { useThemeStore } from '../store/themeStore';
 import { useMatchStore } from '../store/matchStore';
 
-const { width: SW, height: SH } = Dimensions.get('window');
+const { width: SW } = Dimensions.get('window');
 
 export default function LiveScoreCapsule() {
   const { theme } = useThemeStore();
-  const { match } = useMatchStore();
+  const { match, status } = useMatchStore();
   const pan = useRef(new Animated.ValueXY({ x: SW - 200, y: 60 })).current;
   const [open, setOpen] = useState(false);
 
@@ -23,32 +23,52 @@ export default function LiveScoreCapsule() {
     })
   ).current;
 
+  // Only show capsule when a live match is loaded
+  const isLive = status === 'LIVE' || status === 'HT';
+  if (!match || !isLive) return null;
+
+  const home = match.home ?? {};
+  const away = match.away ?? {};
+
   return (
     <>
       <Animated.View
         {...responder.panHandlers}
         style={[
           styles.capsule,
-          { backgroundColor: theme.isDark ? 'rgba(20,40,20,0.92)' : 'rgba(255,255,255,0.95)', borderColor: theme.primary, shadowColor: '#000' },
+          {
+            backgroundColor: theme.isDark ? 'rgba(20,40,20,0.92)' : 'rgba(255,255,255,0.95)',
+            borderColor: theme.primary,
+            shadowColor: '#000',
+          },
           { transform: pan.getTranslateTransform() },
         ]}
       >
         <TouchableOpacity onPress={() => setOpen(true)} style={styles.inner}>
-          <View style={[styles.dot, { backgroundColor: theme.danger }]} />
-          <Text style={[styles.team, { color: theme.textPrimary }]}>{match.home.code}</Text>
-          <Text style={[styles.score, { color: theme.accent }]}>{match.home.score}-{match.away.score}</Text>
-          <Text style={[styles.team, { color: theme.textPrimary }]}>{match.away.code}</Text>
-          <Text style={[styles.min, { color: theme.primary }]}>{match.minute}'</Text>
+          <View style={[styles.dot, { backgroundColor: '#e84040' }]} />
+          <Text style={[styles.team, { color: theme.textPrimary }]}>{home.code ?? '—'}</Text>
+          <Text style={[styles.score, { color: theme.accent }]}>
+            {home.score ?? 0}–{away.score ?? 0}
+          </Text>
+          <Text style={[styles.team, { color: theme.textPrimary }]}>{away.code ?? '—'}</Text>
+          <Text style={[styles.min, { color: theme.primary }]}>{match.minute ?? 0}'</Text>
         </TouchableOpacity>
       </Animated.View>
+
       <Modal transparent visible={open} animationType="slide" onRequestClose={() => setOpen(false)}>
         <TouchableOpacity activeOpacity={1} onPress={() => setOpen(false)} style={styles.backdrop}>
           <View style={[styles.sheet, { backgroundColor: theme.surface }]}>
             <Text style={{ color: theme.textPrimary, fontSize: 18, fontWeight: '700', textAlign: 'center' }}>
-              {match.home.flag} {match.home.name}  {match.home.score} — {match.away.score}  {match.away.name} {match.away.flag}
+              {home.flag} {home.name}  {home.score ?? 0} — {away.score ?? 0}  {away.name} {away.flag}
             </Text>
-            <Text style={{ color: theme.textSecondary, textAlign: 'center', marginTop: 8 }}>{match.half} · {match.minute}'</Text>
-            <Text style={{ color: theme.textMuted, textAlign: 'center', marginTop: 4 }}>HT: {match.htScore}</Text>
+            <Text style={{ color: theme.textSecondary, textAlign: 'center', marginTop: 8 }}>
+              {match.half || status} · {match.minute ?? 0}'
+            </Text>
+            {match.htScore && (
+              <Text style={{ color: theme.textMuted, textAlign: 'center', marginTop: 4 }}>
+                HT: {match.htScore}
+              </Text>
+            )}
           </View>
         </TouchableOpacity>
       </Modal>

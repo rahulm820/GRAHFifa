@@ -6,8 +6,13 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import TabNavigator from './src/navigation/TabNavigator';
 import AuthNavigator from './src/navigation/AuthNavigator';
 import LiveScoreCapsule from './src/components/LiveScoreCapsule';
+import GeminiChatbot from './src/components/GeminiChatbot';
 import { useThemeStore } from './src/store/themeStore';
 import { useAuthStore } from './src/store/authStore';
+import * as WebBrowser from 'expo-web-browser';
+
+// Must be called at root level to properly catch the deep link from the Auth Proxy
+WebBrowser.maybeCompleteAuthSession();
 
 export default function App() {
   const { theme, isDark, init: initTheme } = useThemeStore();
@@ -51,6 +56,7 @@ export default function App() {
             <View style={{ flex: 1 }}>
               <TabNavigator />
               <LiveScoreCapsule />
+              <GeminiChatbot />
             </View>
           ) : (
             <AuthNavigator />

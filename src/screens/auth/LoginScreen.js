@@ -38,11 +38,18 @@ export default function LoginScreen({ navigation }) {
   const shakeAnim = useRef(new Animated.Value(0)).current;
 
   // ── expo-auth-session hook — always called (hooks must not be conditional) ──
-  // On web this hook still runs but googlePrompt() is never called.
+  // On web this hook still runs but googlePrompt() is never called (we use signInWithPopup).
+  const redirectUri = Platform.OS === 'web'
+    ? makeRedirectUri()
+    : 'https://auth.expo.io/@rahulm820/fifa-rapid-agent-2026';
+
+  console.log("Expo Go Redirect URI:", redirectUri); // <-- Add this to check the exact URI
+
   const [, googleResponse, googlePrompt] = Google.useAuthRequest({
+    expoClientId: GOOGLE_WEB_CLIENT_ID,    // Forces Expo Go to use the Web Client ID
     webClientId: GOOGLE_WEB_CLIENT_ID,
-    androidClientId: GOOGLE_ANDROID_CLIENT_ID,
-    redirectUri: makeRedirectUri(),   // auto-detects: proxy on Expo Go, scheme on standalone
+    androidClientId: GOOGLE_ANDROID_CLIENT_ID, // Only used in standalone native builds
+    redirectUri,
   });
 
   // Handle native Google response
@@ -86,20 +93,20 @@ export default function LoginScreen({ navigation }) {
   };
 
   // ── Platform-aware Google Sign-In ────────────────────────────────────────────
-  // WEB  → Firebase signInWithPopup (no redirect URI config needed — ever)
-  // NATIVE → expo-auth-session prompt
+  // WEB  → Firebase signInWithPopup → UsernameModal
+  // NATIVE → expo-auth-session prompt → idToken → prepareGoogleSignIn → UsernameModal
   const handleGoogle = async () => {
     setLoadingGoogle(true);
     try {
       if (Platform.OS === 'web') {
-        await loginWithGooglePopup();
-        // loginWithGooglePopup resolves after sign-in; onAuthStateChanged updates state
+        await loginWithGooglePopup();   // opens popup; on success shows UsernameModal
       } else {
-        googlePrompt();  // response handled by the useEffect above
+        googlePrompt();                 // response handled by useEffect above
       }
     } catch (e) {
-      setLoadingGoogle(false);
       Alert.alert('Google Sign-In Failed', e.message);
+    } finally {
+      setLoadingGoogle(false);          // always reset — modal has its own loading state
     }
   };
 
