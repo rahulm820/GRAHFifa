@@ -34,8 +34,8 @@ function SkeletonCard({ theme }) {
 const EMPTY_STATES = {
   LIVE: {
     emoji: '📡',
-    title: 'No Live Matches',
-    desc: 'There are no matches being played right now.\nCheck back during match days!',
+    title: 'No live matches on going',
+    desc: 'Check back during match days!',
   },
   FINISHED: {
     emoji: '🏆',

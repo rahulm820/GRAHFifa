@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, FlatList, TextInput, TouchableOpacity,
   StyleSheet, KeyboardAvoidingView, Platform, Image,
@@ -12,16 +12,25 @@ import { useAuthStore } from '../store/authStore';
 
 export default function ChatScreen() {
   const { theme } = useThemeStore();
-  const { messages, summary, send } = useChatStore();
-  const { match } = useMatchStore();
+  const { messages, summary, send, connectWS, reactToMessage } = useChatStore();
+  const { liveMatch, isLive, screenContext } = useMatchStore();
   const { user } = useAuthStore();
   const [text, setText] = useState('');
   const [expanded, setExpanded] = useState(true);
   const flatRef = useRef(null);
 
+  // Build subtitle from live match if available
+  const subtitle = isLive && liveMatch
+    ? `1.2k watching · ${liveMatch.home?.code ?? '—'} ${liveMatch.home?.score ?? 0}-${liveMatch.away?.score ?? 0} ${liveMatch.away?.code ?? '—'}`
+    : 'Join the match discussion';
+
+  useEffect(() => {
+    connectWS('global-chat-room', screenContext);
+  }, []);
+
   const onSend = () => {
     if (!text.trim()) return;
-    send(text.trim(), user);
+    send(text.trim(), user, 'global-chat-room', screenContext);
     setText('');
     setTimeout(() => flatRef.current?.scrollToEnd({ animated: true }), 100);
   };
@@ -30,7 +39,7 @@ export default function ChatScreen() {
     <View style={{ flex: 1, backgroundColor: theme.background }}>
       <ScreenHeader
         title="Match Room"
-        subtitle={`1.2k watching · ${match.home.code} ${match.home.score}-${match.away.score} ${match.away.code}`}
+        subtitle={subtitle}
       />
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }} keyboardVerticalOffset={80}>
@@ -57,7 +66,14 @@ export default function ChatScreen() {
             </View>
           }
           renderItem={({ item }) => (
-            <Message msg={item} theme={theme} currentUid={user?.uid} currentPhotoURL={user?.photoURL} currentName={user?.displayName} />
+            <Message 
+              msg={item} 
+              theme={theme} 
+              currentUid={user?.uid} 
+              currentPhotoURL={user?.photoURL} 
+              currentName={user?.displayName}
+              onReact={reactToMessage}
+            />
           )}
         />
 
@@ -89,7 +105,9 @@ export default function ChatScreen() {
 }
 
 // ─── Message Bubble ────────────────────────────────────────────────────────────
-const Message = ({ msg, theme, currentUid, currentPhotoURL, currentName }) => {
+const Message = ({ msg, theme, currentUid, currentPhotoURL, currentName, onReact }) => {
+  const [showReactions, setShowReactions] = useState(false);
+
   if (msg.system) {
     return (
       <View style={{ alignSelf: 'center', marginVertical: 8, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, backgroundColor: theme.accent + '33' }}>
@@ -125,14 +143,27 @@ const Message = ({ msg, theme, currentUid, currentPhotoURL, currentName }) => {
             {msg.user} {msg.flag || ''}
           </Text>
         )}
-        <View style={[
-          styles.bubble,
-          isMine
-            ? { backgroundColor: theme.primary, borderBottomRightRadius: 4 }
-            : { backgroundColor: theme.surface, borderBottomLeftRadius: 4 },
-        ]}>
+        <TouchableOpacity 
+          activeOpacity={0.8}
+          onLongPress={() => setShowReactions(true)}
+          style={[
+            styles.bubble,
+            isMine
+              ? { backgroundColor: theme.primary, borderBottomRightRadius: 4 }
+              : { backgroundColor: theme.surface, borderBottomLeftRadius: 4 },
+          ]}>
           <Text style={{ color: isMine ? '#fff' : theme.textPrimary, fontSize: 14 }}>{msg.text}</Text>
-        </View>
+        </TouchableOpacity>
+
+        {showReactions && (
+          <View style={[styles.reactionMenu, { backgroundColor: theme.surfaceElevated }]}>
+            {['👍', '❤️', '😂', '⚽'].map(emoji => (
+              <TouchableOpacity key={emoji} onPress={() => { onReact(msg.id, emoji); setShowReactions(false); }}>
+                <Text style={{fontSize: 20, marginHorizontal: 6}}>{emoji}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
         <View style={{ flexDirection: 'row', marginTop: 4, gap: 4, justifyContent: isMine ? 'flex-end' : 'flex-start' }}>
           {Object.entries(msg.reactions || {}).map(([emoji, count]) => (
             <View key={emoji} style={[styles.reaction, { backgroundColor: theme.surfaceElevated }]}>
@@ -159,4 +190,5 @@ const styles = StyleSheet.create({
   inputAvatarFallback: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   inputAvatarInitials: { color: '#FFF', fontSize: 13, fontWeight: '800' },
   sendBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  reactionMenu: { flexDirection: 'row', position: 'absolute', top: -35, left: 10, borderRadius: 20, padding: 6, elevation: 4, shadowOpacity: 0.2, shadowRadius: 4, zIndex: 10 },
 });

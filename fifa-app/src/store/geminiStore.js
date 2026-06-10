@@ -4,6 +4,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { create } from 'zustand';
 import { useMatchStore } from './matchStore';
+import { useAuthStore } from './authStore';
 
 const ADK_SERVER_URL = process.env.EXPO_PUBLIC_ADK_SERVER_URL || 'http://localhost:8000';
 
@@ -39,11 +40,13 @@ export const useGeminiStore = create((set, get) => ({
     try {
       // Get screen context from matchStore
       const screenContext = useMatchStore.getState().screenContext;
+      const user = useAuthStore.getState().user;
 
       const body = {
         message: text.trim(),
         session_id: get().sessionId,
         screen_context: screenContext,
+        user_name: user?.displayName || 'User',
       };
 
       const res = await fetch(`${ADK_SERVER_URL}/chat`, {
